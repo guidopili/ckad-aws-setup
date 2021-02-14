@@ -140,3 +140,15 @@ resource "aws_instance" "minion" {
     Role = "minion"
   }
 }
+
+resource "local_file" "hosts-file" {
+  content = templatefile(
+    "${path.module}/inventory.tpl",
+    {
+      master_ip = aws_instance.master.public_ip
+      agent_ips = aws_instance.minion.*.public_ip
+    }
+  )
+  filename        = "${path.module}/../hosts.ini"
+  file_permission = "0400"
+}

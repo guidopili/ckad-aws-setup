@@ -2,3 +2,5 @@
 /terraform/.terraform/
 /terraform/*.auto.tfvars
 /terraform/.terraform.lock.hcl
+
+/ansible/hosts.ini

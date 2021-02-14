@@ -57,7 +57,7 @@ resource "aws_default_route_table" "r" {
   default_route_table_id = aws_vpc.vpc.default_route_table_id
 
   route {
-    cidr_block        = "0.0.0.0/0"
+    cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.gw.id
   }
 
@@ -67,11 +67,11 @@ resource "aws_default_route_table" "r" {
 }
 
 resource "aws_route_table" "rt" {
-count = 0
+  count  = 0
   vpc_id = aws_vpc.vpc.id
 
   route {
-    cidr_block        = "0.0.0.0/0"
+    cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.gw.id
   }
 
@@ -119,6 +119,7 @@ resource "aws_instance" "master" {
 
   tags = {
     Name = "${var.name}-master"
+    Role = "master"
   }
 }
 
@@ -136,5 +137,6 @@ resource "aws_instance" "minion" {
 
   tags = {
     Name = "${var.name}-minion"
+    Role = "minion"
   }
 }

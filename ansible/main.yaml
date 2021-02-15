@@ -1,4 +1,4 @@
-- name: Update all
+- name: Setup nodes
   hosts: all
   become: yes
   tasks:
@@ -64,3 +64,49 @@
       systemd:
         name: containerd
         state: restarted
+- name: Setup master node
+  hosts: master
+  become: yes
+  tasks:
+    - name: Check kube config
+      stat:
+        path: /home/{{ ansible_ssh_user }}/.kube/config
+      register: config_file
+    - name: Init kubeadm
+      command: kubeadm init --kubernetes-version 1.20.1 --pod-network-cidr 192.168.0.0/16
+      when: not config_file.stat.exists
+    - name: Make .kube dir
+      become: no
+      when: not config_file.stat.exists
+      file:
+        path: "/home/{{ ansible_ssh_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_ssh_user }}"
+    - name: Copy config
+      when: not config_file.stat.exists
+      copy:
+        remote_src: yes
+        src:  /etc/kubernetes/admin.conf
+        dest: "/home/{{ ansible_ssh_user }}/.kube/config"
+        owner: "{{ ansible_ssh_user }}"
+    - name: Apply network config
+      command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      become: no
+    - name: Get join command
+      shell: kubeadm token create --print-join-command
+      register: join_command
+    - name: "Add K8S join command to dummy host"
+      add_host:
+        name: K8S_JOIN_COMMAND
+        join_command: "{{ join_command.stdout }}"
+- name: Setup minions
+  hosts: minion
+  become: yes
+  tasks:
+    - name: Check file
+      stat:
+        path: /etc/kubernetes/pki/ca.crt
+      register: exists_ca
+    - name: Init minion
+      command: "{{ hostvars['K8S_JOIN_COMMAND']['join_command'] }}"
+      when: not exists_ca.stat.exists

@@ -107,7 +107,7 @@ resource "aws_security_group" "allow_all" {
 
 resource "aws_instance" "master" {
   ami             = data.aws_ami.ubuntu.id
-  instance_type   = "t3a.large"
+  instance_type   = var.master_instance_type
   key_name        = aws_key_pair.key-pair.id
   subnet_id       = aws_subnet.main.id
   security_groups = [aws_security_group.allow_all.id]
@@ -124,8 +124,10 @@ resource "aws_instance" "master" {
 }
 
 resource "aws_instance" "minion" {
+  count = var.minions_count
+
   ami             = data.aws_ami.ubuntu.id
-  instance_type   = "t3a.large"
+  instance_type   = var.minion_instance_type
   key_name        = aws_key_pair.key-pair.id
   subnet_id       = aws_subnet.main.id
   security_groups = [aws_security_group.allow_all.id]

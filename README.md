@@ -19,3 +19,8 @@ To run ansible, just run, from the root folder:
 ```
 ansible-playbook --inventory hosts.ini ansible/main.yaml
 ```
+
+If you want to use cri-o as container runtime, instead of using `containerd`, you can pass an extra var to the ansible command, such as:
+```
+ansible-playbook --inventory hosts.ini ansible/main.yaml -e "use_crio=yes"
+```

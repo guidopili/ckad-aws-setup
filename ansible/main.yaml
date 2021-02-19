@@ -33,7 +33,15 @@
       dpkg_selections:
         name: kubectl
         selection: hold
+    - name: Create crio.conf
+      when: use_crio is defined and use_crio
+      copy:
+        dest: "/etc/modules-load.d/crio.conf"
+        content: |
+          overlay
+          br_netfilter
     - name: Create containerd.conf
+      when: use_crio is not defined or not use_crio
       copy:
         dest: "/etc/modules-load.d/containerd.conf"
         content: |
@@ -55,15 +63,55 @@
     - name: Reload systemd
       command: sysctl --system
     - name: Install containerd
+      when: use_crio is not defined or not use_crio
       apt:
         name: containerd
         state: present
     - name: Configure containerd
+      when: use_crio is not defined or not use_crio
       command: containerd config default | sudo tee /etc/containerd/config.toml
     - name: Reload containerd
+      when: use_crio is not defined or not use_crio
       systemd:
         name: containerd
         state: restarted
+    - name: Adds libcontainers key
+      when: use_crio is defined and use_crio
+      apt_key:
+        url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/Release.key"
+        keyring: /etc/apt/trusted.gpg.d/libcontainers.gpg
+        state: present
+    - name: Adds libcontainer repository
+      when: use_crio is defined and use_crio
+      apt_repository:
+        repo: deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/ /
+        state: present
+        filename: devel:kubic:libcontainers:stable.list
+    - name: Adds cri-o key
+      when: use_crio is defined and use_crio
+      apt_key:
+        url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.20/xUbuntu_20.04/Release.key"
+        keyring: /etc/apt/trusted.gpg.d/libcontainers-cri-o.gpg
+        state: present
+    - name: Adds cri-o repository
+      when: use_crio is defined and use_crio
+      apt_repository:
+        repo: deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.20/xUbuntu_20.04/ /
+        state: present
+        filename: devel:kubic:libcontainers:stable:cri-o:1.20.list
+    - name: Install cri-o
+      when: use_crio is defined and use_crio
+      apt:
+        pkg:
+          - cri-o
+          - cri-o-runc
+    - name: Enable cri-o
+      when: use_crio is defined and use_crio
+      systemd:
+        name: crio
+        state: restarted
+        daemon_reload: True
+        enabled: True
 - name: Setup master node
   hosts: master
   become: yes
@@ -72,8 +120,41 @@
       stat:
         path: /home/{{ ansible_ssh_user }}/.kube/config
       register: config_file
+    - name: Add yq key
+      apt_key:
+        id: CC86BB64
+        keyserver: keyserver.ubuntu.com
+        state: present
+    - name: Adds yq repository
+      apt_repository:
+        repo: ppa:rmescandon/yq
+        state: present
+    - name: Install yq
+      apt:
+        name: yq
+        state: present
+    - name: Dump default config
+      shell: kubeadm config print init-defaults --component-configs=KubeletConfiguration
+      register: kubeadm_config
+    - name: Create kubeadm config
+      copy:
+        dest: "/tmp/kubeadm-config.yaml"
+        content: "{{ kubeadm_config.stdout }}"
+    - name: Edit advertiseAddress config
+      command: yq w -i /tmp/kubeadm-config.yaml localAPIEndpoint.advertiseAddress 0.0.0.0
+    - name: Edit networking config
+      command: yq w -i /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+    - name: Edit cgroup driver config
+      when: use_crio is defined and use_crio
+      command: yq w -i --doc 2 /tmp/kubeadm-config.yaml cgroupDriver systemd
+    - name: Edit cri socket config
+      when: use_crio is defined and use_crio
+      command: yq w -i /tmp/kubeadm-config.yaml nodeRegistration.criSocket unix:///var/run/crio/crio.sock
+    - name: Edit containerd socket config
+      when: use_crio is not defined or not use_crio
+      command: yq w -i /tmp/kubeadm-config.yaml nodeRegistration.criSocket unix:///var/run/containerd/containerd.sock
     - name: Init kubeadm
-      command: kubeadm init --kubernetes-version 1.20.1 --pod-network-cidr 192.168.0.0/16
+      command: kubeadm init --config /tmp/kubeadm-config.yaml
       when: not config_file.stat.exists
     - name: Make .kube dir
       become: no

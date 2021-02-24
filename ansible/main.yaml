@@ -13,6 +13,8 @@
     - name: Upgrade all packages
       apt:
         upgrade: dist
+    - name: Disable swap
+      shell: swapoff -a
     - name: Adds GCE key
       apt_key:
         url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg" 
@@ -150,7 +152,9 @@
     - name: Edit advertiseAddress config
       command: yq w -i /tmp/kubeadm-config.yaml localAPIEndpoint.advertiseAddress 0.0.0.0
     - name: Edit networking config
-      command: yq w -i /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+    - name: Add extra san
+      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml apiServer.certSANs[+] "{{ inventory_hostname }}"
     - name: Edit cgroup driver config
       when: use_crio is defined and use_crio
       command: yq w -i --doc 2 /tmp/kubeadm-config.yaml cgroupDriver systemd

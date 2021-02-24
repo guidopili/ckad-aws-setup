@@ -2,6 +2,9 @@
   hosts: all
   become: yes
   tasks:
+    - name: Change hostname
+      hostname:
+        name: "{{ new_hostname }}"
     - name: Ensure all to latest 
       apt:
         name: "*"

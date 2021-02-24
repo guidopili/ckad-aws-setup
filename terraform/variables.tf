@@ -1,4 +1,8 @@
-variable "pubkey_path" {
+variable "aws_region" {
+  type = string
+}
+
+variable "pubkey" {
   type = string
 }
 

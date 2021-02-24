@@ -1,6 +1,6 @@
 resource "aws_key_pair" "key-pair" {
   key_name   = "${var.name}-key-pair"
-  public_key = file(var.pubkey_path)
+  public_key = var.pubkey
 }
 
 data "aws_ami" "ubuntu" {
@@ -143,12 +143,16 @@ resource "aws_instance" "minion" {
   }
 }
 
+resource "random_pet" "hostnames" {
+  count = var.minions_count
+}
+
 resource "local_file" "hosts-file" {
   content = templatefile(
     "${path.module}/inventory.tpl",
     {
       master_ip = aws_instance.master.public_ip
-      agent_ips = aws_instance.minion.*.public_ip
+      agents = [for index, minion in aws_instance.minion : {ip: minion.public_ip, hostname: random_pet.hostnames[index].id}]
     }
   )
   filename        = "${path.module}/../hosts.ini"

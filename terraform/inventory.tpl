@@ -2,8 +2,8 @@
 ${master_ip}
 
 [minion]
-%{ for agent_ip in agent_ips ~}
-${agent_ip}
+%{ for agent in agents ~}
+${agent.ip} minion_hostname=${agent.hostname}
 %{ endfor ~}
 
 [all:children]

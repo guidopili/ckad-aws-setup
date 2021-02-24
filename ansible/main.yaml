@@ -8,7 +8,11 @@
     - name: Ensure all to latest 
       apt:
         name: "*"
+        update_cache: yes
         state: latest
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
     - name: Adds GCE key
       apt_key:
         url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg" 

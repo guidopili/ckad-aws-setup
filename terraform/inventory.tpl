@@ -1,9 +1,9 @@
 [master]
-${master_ip}
+${master_ip} new_hostname=master
 
 [minion]
 %{ for agent in agents ~}
-${agent.ip} minion_hostname=${agent.hostname}
+${agent.ip} new_hostname=${agent.hostname}
 %{ endfor ~}
 
 [all:children]

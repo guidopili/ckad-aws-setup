@@ -24,3 +24,8 @@ variable "minion_instance_type" {
   type    = string
   default = "t3a.large"
 }
+
+variable "create_hosts_file" {
+  type = bool
+  default = true
+}

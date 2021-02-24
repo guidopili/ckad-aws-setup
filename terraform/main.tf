@@ -121,6 +121,14 @@ resource "aws_instance" "master" {
     Name = "${var.name}-master"
     Role = "master"
   }
+
+  lifecycle {
+    ignore_changes = [security_groups]
+  }
+}
+
+resource "random_pet" "hostnames" {
+  count = var.minions_count
 }
 
 resource "aws_instance" "minion" {
@@ -138,23 +146,28 @@ resource "aws_instance" "minion" {
   }
 
   tags = {
-    Name = "${var.name}-minion"
+    Name = random_pet.hostnames[count.index].id
     Role = "minion"
+  }
+
+  lifecycle {
+    ignore_changes = [security_groups]
   }
 }
 
-resource "random_pet" "hostnames" {
-  count = var.minions_count
-}
-
-resource "local_file" "hosts-file" {
-  content = templatefile(
+locals {
+  inventory_file_content = templatefile(
     "${path.module}/inventory.tpl",
     {
       master_ip = aws_instance.master.public_ip
-      agents = [for index, minion in aws_instance.minion : {ip: minion.public_ip, hostname: random_pet.hostnames[index].id}]
+      agents    = [for index, minion in aws_instance.minion : { ip : minion.public_ip, hostname : random_pet.hostnames[index].id }]
     }
   )
+}
+
+resource "local_file" "hosts-file" {
+  count = var.create_hosts_file ? 1 : 0
+  content = local.inventory_file_content
   filename        = "${path.module}/../hosts.ini"
   file_permission = "0400"
 }

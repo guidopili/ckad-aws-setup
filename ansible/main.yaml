@@ -151,8 +151,8 @@
         content: "{{ kubeadm_config.stdout }}"
     - name: Edit advertiseAddress config
       command: yq w -i /tmp/kubeadm-config.yaml localAPIEndpoint.advertiseAddress 0.0.0.0
-    - name: Edit networking config
-      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+      #    - name: Edit networking config
+      #      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
     - name: Add extra san
       command: yq w -i --doc 1 /tmp/kubeadm-config.yaml apiServer.certSANs[+] "{{ inventory_hostname }}"
     - name: Edit cgroup driver config

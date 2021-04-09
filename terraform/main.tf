@@ -1,3 +1,8 @@
+locals {
+  cidr_block = "10.0.0.0/16"
+  subnets_count = min(var.minions_count, length(data.aws_availability_zones.az.names))
+}
+
 resource "aws_key_pair" "key-pair" {
   key_name   = "${var.name}-key-pair"
   public_key = var.pubkey
@@ -25,11 +30,11 @@ data "aws_availability_zones" "az" {
 
 resource "random_shuffle" "az" {
   input        = data.aws_availability_zones.az.names
-  result_count = 1
+  result_count = local.subnets_count
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = local.cidr_block
 
   tags = { Name = var.name }
 }
@@ -43,9 +48,11 @@ resource "aws_internet_gateway" "gw" {
 }
 
 resource "aws_subnet" "main" {
+  count = local.subnets_count
+
   vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = random_shuffle.az.result[0]
+  cidr_block              = cidrsubnet(local.cidr_block, 8, count.index)
+  availability_zone       = random_shuffle.az.result[count.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -109,7 +116,7 @@ resource "aws_instance" "master" {
   ami             = data.aws_ami.ubuntu.id
   instance_type   = var.master_instance_type
   key_name        = aws_key_pair.key-pair.id
-  subnet_id       = aws_subnet.main.id
+  subnet_id       = aws_subnet.main[0].id
   security_groups = [aws_security_group.allow_all.id]
   root_block_device {
     volume_type = "gp3"
@@ -137,7 +144,7 @@ resource "aws_instance" "minion" {
   ami             = data.aws_ami.ubuntu.id
   instance_type   = var.minion_instance_type
   key_name        = aws_key_pair.key-pair.id
-  subnet_id       = aws_subnet.main.id
+  subnet_id       = aws_subnet.main[count.index % local.subnets_count].id
   security_groups = [aws_security_group.allow_all.id]
   root_block_device {
     volume_type = "gp3"

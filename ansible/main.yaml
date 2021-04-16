@@ -27,9 +27,9 @@
     - name: Install packages
       apt:
         pkg:
-          - kubeadm=1.20.1-00
-          - kubelet=1.20.1-00
-          - kubectl=1.20.1-00
+          - kubeadm=1.21.0-00
+          - kubelet=1.21.0-00
+          - kubectl=1.21.0-00
     - name: Hold kubeadm
       dpkg_selections:
         name: kubeadm
@@ -99,15 +99,15 @@
     - name: Adds cri-o key
       when: use_crio is defined and use_crio
       apt_key:
-        url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.20/xUbuntu_20.04/Release.key"
+        url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.21/xUbuntu_20.04/Release.key"
         keyring: /etc/apt/trusted.gpg.d/libcontainers-cri-o.gpg
         state: present
     - name: Adds cri-o repository
       when: use_crio is defined and use_crio
       apt_repository:
-        repo: deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.20/xUbuntu_20.04/ /
+        repo: deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.21/xUbuntu_20.04/ /
         state: present
-        filename: devel:kubic:libcontainers:stable:cri-o:1.20.list
+        filename: devel:kubic:libcontainers:stable:cri-o:1.21.list
     - name: Install cri-o
       when: use_crio is defined and use_crio
       apt:
@@ -151,8 +151,8 @@
         content: "{{ kubeadm_config.stdout }}"
     - name: Edit advertiseAddress config
       command: yq w -i /tmp/kubeadm-config.yaml localAPIEndpoint.advertiseAddress 0.0.0.0
-      #    - name: Edit networking config
-      #      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+    - name: Edit networking config
+      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
     - name: Add extra san
       command: yq w -i --doc 1 /tmp/kubeadm-config.yaml apiServer.certSANs[+] "{{ inventory_hostname }}"
     - name: Edit cgroup driver config
@@ -183,6 +183,12 @@
         owner: "{{ ansible_ssh_user }}"
     - name: Apply network config
       command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      become: no
+    - name: Adds metric server
+      command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      become: no
+    - name: Patch metrics-server
+      command: kubectl patch deployment metrics-server --type json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]' -n kube-system
       become: no
     - name: Get join command
       shell: kubeadm token create --print-join-command

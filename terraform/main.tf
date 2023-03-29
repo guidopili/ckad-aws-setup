@@ -5,7 +5,7 @@ locals {
 
 resource "aws_key_pair" "key-pair" {
   key_name   = "${var.name}-key-pair"
-  public_key = var.pubkey
+  public_key = fileexists(var.pubkey) ? file(var.pubkey) : var.pubkey
 }
 
 data "aws_ami" "ubuntu" {
@@ -13,7 +13,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
   filter {

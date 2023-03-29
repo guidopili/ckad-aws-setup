@@ -27,9 +27,9 @@
     - name: Install packages
       apt:
         pkg:
-          - kubeadm=1.21.0-00
-          - kubelet=1.21.0-00
-          - kubectl=1.21.0-00
+          - kubeadm=1.26.0-00
+          - kubelet=1.26.0-00
+          - kubectl=1.26.0-00
     - name: Hold kubeadm
       dpkg_selections:
         name: kubeadm
@@ -87,7 +87,7 @@
     - name: Adds libcontainers key
       when: use_crio is defined and use_crio
       apt_key:
-        url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/Release.key"
+        url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_22.04/Release.key"
         keyring: /etc/apt/trusted.gpg.d/libcontainers.gpg
         state: present
     - name: Adds libcontainer repository
@@ -99,15 +99,15 @@
     - name: Adds cri-o key
       when: use_crio is defined and use_crio
       apt_key:
-        url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.21/xUbuntu_20.04/Release.key"
+        url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.26/xUbuntu_22.04/Release.key"
         keyring: /etc/apt/trusted.gpg.d/libcontainers-cri-o.gpg
         state: present
     - name: Adds cri-o repository
       when: use_crio is defined and use_crio
       apt_repository:
-        repo: deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.21/xUbuntu_20.04/ /
+        repo: deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.26/xUbuntu_22.04/ /
         state: present
-        filename: devel:kubic:libcontainers:stable:cri-o:1.21.list
+        filename: devel:kubic:libcontainers:stable:cri-o:1.26.list
     - name: Install cri-o
       when: use_crio is defined and use_crio
       apt:
@@ -150,20 +150,20 @@
         dest: "/tmp/kubeadm-config.yaml"
         content: "{{ kubeadm_config.stdout }}"
     - name: Edit advertiseAddress config
-      command: yq w -i /tmp/kubeadm-config.yaml localAPIEndpoint.advertiseAddress 0.0.0.0
+      command: yq e '(select (.localAPIEndpoint.advertiseAddress) | .localAPIEndpoint.advertiseAddress) = "0.0.0.0"' -i /tmp/kubeadm-config.yaml 
     - name: Edit networking config
-      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml networking.podSubnet 192.168.0.0/16
+      command: yq e '(select (.networking.podSubnet) | .networking.podSubnet) = "192.168.0.0/16"' -i /tmp/kubeadm-config.yaml 
     - name: Add extra san
-      command: yq w -i --doc 1 /tmp/kubeadm-config.yaml apiServer.certSANs[+] "{{ inventory_hostname }}"
+      command: yq e '(select (.apiServer) | .apiServer.certSANs) += ["{{ inventory_hostname }}"]' -i /tmp/kubeadm-config.yaml 
     - name: Edit cgroup driver config
       when: use_crio is defined and use_crio
-      command: yq w -i --doc 2 /tmp/kubeadm-config.yaml cgroupDriver systemd
+      command: yq e '(select (.cgroupDriver) | .cgroupDriver) = "systemd"' -i /tmp/kubeadm-config.yaml 
     - name: Edit cri socket config
       when: use_crio is defined and use_crio
-      command: yq w -i /tmp/kubeadm-config.yaml nodeRegistration.criSocket unix:///var/run/crio/crio.sock
+      command: yq e '(select (.nodeRegistration.criSocket) | .nodeRegistration.criSocket) = "unix:///var/run/crio/crio.sock"' -i /tmp/kubeadm-config.yaml 
     - name: Edit containerd socket config
       when: use_crio is not defined or not use_crio
-      command: yq w -i /tmp/kubeadm-config.yaml nodeRegistration.criSocket unix:///var/run/containerd/containerd.sock
+      command: yq e '(select (.nodeRegistration.criSocket) | .nodeRegistration.criSocket) = "unix:///var/run/containerd/containerd.sock"' -i /tmp/kubeadm-config.yaml 
     - name: Init kubeadm
       command: kubeadm init --config /tmp/kubeadm-config.yaml
       when: not config_file.stat.exists
@@ -182,7 +182,7 @@
         dest: "/home/{{ ansible_ssh_user }}/.kube/config"
         owner: "{{ ansible_ssh_user }}"
     - name: Apply network config
-      command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
       become: no
     - name: Adds metric server
       command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
